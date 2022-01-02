@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
-const Schema = mongoose.Schema;
+const SCHEMA_STRING_CONSTANTS = require('./constants');
 
-const eventSchema = new Schema({
+const eventSchema = new mongoose.Schema({
   title: {
     type: String,
     required: true,
@@ -19,9 +19,9 @@ const eventSchema = new Schema({
     required: true,
   },
   creator: {
-    type: Schema.Types.ObjectId,
-    ref: 'User',
+    type: mongoose.Schema.Types.ObjectId,
+    ref: SCHEMA_STRING_CONSTANTS.User,
   },
 });
 
-module.exports = mongoose.model('Event', eventSchema);
+module.exports = mongoose.model(SCHEMA_STRING_CONSTANTS.Event, eventSchema);

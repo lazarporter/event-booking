@@ -5,8 +5,7 @@ const { buildSchema } = require('graphql');
 const mongoose = require('mongoose');
 const bcryptjs = require('bcryptjs');
 
-const Event = require('./models/event');
-const User = require('./models/user');
+const { User, Event, SCHEMA_STRING_CONSTANTS } = require('./models');
 
 const app = express();
 app.use(bodyParser.json());
@@ -54,11 +53,11 @@ app.use(
     rootValue: {
       events: () => {
         return Event.find()
-          .then((result) => {
-            return result.map((event) => ({
+          .then((result) =>
+            result.map((event) => ({
               ...event._doc,
-            }));
-          })
+            }))
+          )
           .catch((err) => {
             console.log(err);
             throw err;
