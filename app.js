@@ -3,8 +3,10 @@ const bodyParser = require('body-parser');
 const expressgraphql = require('express-graphql');
 const { buildSchema } = require('graphql');
 const mongoose = require('mongoose');
+const bcryptjs = require('bcryptjs');
 
 const Event = require('./models/event');
+const User = require('./models/user');
 
 const app = express();
 app.use(bodyParser.json());
@@ -19,17 +21,30 @@ app.use(
             price: Float!
             date: String!
         }
+
+        type User {
+          _id: ID!,
+          email: String!
+          password: String
+        }
+
         input EventInput {
             title: String!
             description: String!
             price: Float!
             date: String!
         }
+        input UserInput {
+          email: String!
+          password: String!
+        }
+
         type RootQuery { 
             events: [Event!]!
         }
         type RootMutation {
             createEvent(eventInput: EventInput): Event
+            createUser(userInput: UserInput): User
         }
         schema {
             query: RootQuery  
@@ -50,22 +65,61 @@ app.use(
           });
       },
       createEvent: (args) => {
+        const { title, description, price, date } = args.eventInput;
+        const debugHardcodeUserId = '61d12b12c78cc68693d39950';
+        const creatorUserId = debugHardcodeUserId;
         const event = new Event({
-          title: args.eventInput.title,
-          description: args.eventInput.description,
-          price: +args.eventInput.price,
-          date: new Date(args.eventInput.date),
+          title,
+          description,
+          price: +price,
+          date: new Date(date),
+          creator: creatorUserId,
         });
-        return event
+        let createdEvent;
+        return event // TODO: use transaction
           .save()
           .then((result) => {
-            return { ...result._doc };
+            createdEvent = result._doc;
+            return User.findById(creatorUserId);
           })
+          .then((foundUser) => {
+            if (!foundUser) {
+              throw new Error('Could not find user');
+            }
+            foundUser.createdEvents.push(event);
+            return foundUser.save();
+          })
+          .then(() => createdEvent)
           .catch((err) => {
             console.log(err);
             throw err;
           });
         return event;
+      },
+      createUser: (args) => {
+        const { email, password } = args.userInput;
+        return User.findOne({ email })
+          .then((foundUser) => {
+            if (foundUser) {
+              throw new Error('User already exists.');
+            }
+
+            return bcryptjs.hash(password, 12);
+          })
+          .then((hash) => {
+            const user = new User({
+              email,
+              password: hash,
+            });
+            return user.save();
+          })
+          .then((result) => {
+            const { password, ...rest } = result._doc;
+            return rest;
+          })
+          .catch((err) => {
+            throw err;
+          });
       },
     },
     graphiql: true,
