@@ -1,50 +1,48 @@
 const bcryptjs = require('bcryptjs');
 const { User, Event } = require('../../models');
 
-const events = (eventIds) =>
-  Event.find({ _id: { $in: eventIds } })
-    .then((events) =>
-      events.map((event) => ({
-        ...event._doc,
-        date: new Date(event._doc.date).toISOString(),
-        creator: user.bind(this, event.creator),
-      }))
-    )
-    .catch((err) => {
-      throw err;
-    });
+const events = async (eventIds) => {
+  try {
+    const events = await Event.find({ _id: { $in: eventIds } });
+    return events.map((event) => ({
+      ...event._doc,
+      date: new Date(event._doc.date).toISOString(),
+      creator: getUser.bind(this, event.creator),
+    }));
+  } catch (err) {
+    throw err;
+  }
+};
 
-const user = (userId) =>
-  User.findById(userId)
-    .then((user) => ({
+const getUser = async (userId) => {
+  try {
+    const user = await User.findById(userId);
+    return {
       ...user._doc,
       createdEvents: events.bind(this, user._doc.createdEvents),
-    }))
-    .catch((err) => {
-      throw err;
-    });
+    };
+  } catch (err) {
+    throw err;
+  }
+};
 
 module.exports = {
-  events: () => {
-    return Event.find()
-      .then((result) =>
-        result.map((event) => {
-          const res = {
-            ...event._doc,
-            date: new Date(event._doc.date).toISOString(),
-            creator: user.bind(this, event._doc.creator),
-          };
-          return res;
-        })
-      )
-      .catch((err) => {
-        console.log(err);
-        throw err;
-      });
+  events: async () => {
+    try {
+      const events = await Event.find();
+      return events.map((event) => ({
+        ...event._doc,
+        date: new Date(event._doc.date).toISOString(),
+        creator: getUser.bind(this, event._doc.creator),
+      }));
+    } catch (err) {
+      console.log(err);
+      throw err;
+    }
   },
-  createEvent: (args) => {
+  createEvent: async (args) => {
     const { title, description, price, date } = args.eventInput;
-    const debugHardcodeUserId = '61d12b12c78cc68693d39950';
+    const debugHardcodeUserId = '61d33ee9677503527c997b11';
     const creatorUserId = debugHardcodeUserId;
     const event = new Event({
       title,
@@ -54,53 +52,42 @@ module.exports = {
       creator: creatorUserId,
     });
     let createdEvent;
-    return event // TODO: use transaction
-      .save()
-      .then((result) => {
-        createdEvent = {
-          ...result._doc,
-          date: new Date(event._doc.date).toISOString(),
-          creator: user.bind(this, result._doc.creator),
-        };
-        return User.findById(creatorUserId);
-      })
-      .then((foundUser) => {
-        if (!foundUser) {
-          throw new Error('Could not find user');
-        }
-        foundUser.createdEvents.push(event);
-        return foundUser.save();
-      })
-      .then(() => createdEvent)
-      .catch((err) => {
-        console.log(err);
-        throw err;
-      });
-    return event;
+    try {
+      const result = await event.save();
+      createdEvent = {
+        ...result._doc,
+        date: new Date(event._doc.date).toISOString(),
+        creator: getUser.bind(this, result._doc.creator),
+      };
+      const foundUser = await User.findById(creatorUserId);
+      if (!foundUser) {
+        throw new Error('Could not find user');
+      }
+      foundUser.createdEvents.push(event);
+      await foundUser.save();
+      return createdEvent;
+    } catch (err) {
+      console.log(err);
+      throw err;
+    }
   },
-  createUser: (args) => {
-    const { email, password } = args.userInput;
-    return User.findOne({ email })
-      .then((foundUser) => {
-        if (foundUser) {
-          throw new Error('User already exists.');
-        }
-
-        return bcryptjs.hash(password, 12);
-      })
-      .then((hash) => {
-        const user = new User({
-          email,
-          password: hash,
-        });
-        return user.save();
-      })
-      .then((result) => {
-        const { password, ...rest } = result._doc;
-        return rest;
-      })
-      .catch((err) => {
-        throw err;
+  createUser: async (args) => {
+    try {
+      const { email, password: passwordInput } = args.userInput;
+      const foundUser = await User.findOne({ email });
+      if (foundUser) {
+        throw new Error('User already exists.');
+      }
+      const hash = await bcryptjs.hash(passwordInput, 12);
+      const user = new User({
+        email,
+        password: hash,
       });
+      const userSaveResult = await user.save();
+      const { password, ...savedUser } = userSaveResult._doc;
+      return savedUser;
+    } catch (err) {
+      throw err;
+    }
   },
 };
