@@ -1,9 +1,12 @@
 const { Booking, Event } = require('../../models');
-const { debugHardcodeUserId } = require('../../models/constants');
 const { transformEvent, transformBooking } = require('./shared');
 
 module.exports = {
-  bookings: async () => {
+  bookings: async (args, req) => {
+    if (!req.isAuth) {
+      throw new Error('Not authenticated');
+    }
+
     try {
       const bookings = await Booking.find();
       return bookings.map(transformBooking);
@@ -12,16 +15,24 @@ module.exports = {
       throw err;
     }
   },
-  bookEvent: async (args) => {
+  bookEvent: async (args, req) => {
+    if (!req.isAuth) {
+      throw new Error('Not authenticated');
+    }
+
     const existingEvent = await Event.findOne({ _id: args.eventId });
     const booking = new Booking({
-      user: debugHardcodeUserId,
+      user: req.userId,
       event: existingEvent,
     });
     const result = await booking.save();
     return transformBooking(result);
   },
-  cancelBooking: async (args) => {
+  cancelBooking: async (args, req) => {
+    if (!req.isAuth) {
+      throw new Error('Not authenticated');
+    }
+
     try {
       const booking = await Booking.findById(args.bookingId).populate('event');
       const event = transformEvent(booking.event);

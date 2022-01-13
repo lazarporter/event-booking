@@ -1,5 +1,4 @@
 const { Event, User } = require('../../models');
-const { debugHardcodeUserId } = require('../../models/constants');
 const { transformEvent } = require('./shared');
 
 module.exports = {
@@ -12,21 +11,24 @@ module.exports = {
       throw err;
     }
   },
-  createEvent: async (args) => {
+  createEvent: async (args, req) => {
+    if (!req.isAuth) {
+      throw new Error('Not authenticated');
+    }
+
     const { title, description, price, date } = args.eventInput;
-    const creatorUserId = debugHardcodeUserId;
     const event = new Event({
       title,
       description,
       price: +price,
       date: new Date(date),
-      creator: creatorUserId,
+      creator: req.userId,
     });
     let createdEvent;
     try {
       const result = await event.save();
       createdEvent = transformEvent(result);
-      const foundUser = await User.findById(creatorUserId);
+      const foundUser = await User.findById(req.userId);
       if (!foundUser) {
         throw new Error('Could not find user');
       }
