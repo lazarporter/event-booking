@@ -33,6 +33,8 @@ module.exports = {
       throw new Error('Not authenticated');
     }
 
+    // Todo check that the user cancelling is the user on the booking?
+
     try {
       const booking = await Booking.findById(args.bookingId).populate('event');
       const event = transformEvent(booking.event);
